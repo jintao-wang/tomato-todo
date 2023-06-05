@@ -4,7 +4,6 @@ import styled from 'styled-components'
 import {throttle} from "@/common/throttle";
 
 
-
 export default function Home() {
   const [list, setList] = useState([]);
   const ref = useRef(null);
@@ -42,7 +41,7 @@ function VirtualList({minHeight, list, children, parentRef}) {
     setTopIndex(topElementIndex);
     topRef.current.topElement = topElement;
     topRef.current.topElementHiddenHeight = topElementHiddenHeight;
-  }, 500), [])
+  }, 250), [])
 
   useEffect(() => {
     parentRef.current.addEventListener('scroll', handler)
