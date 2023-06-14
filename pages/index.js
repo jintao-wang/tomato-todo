@@ -170,11 +170,11 @@ export default function Home() {
           </TodoContainerSC>
         </LeftMenuSC>
         <ContentSC>
-          <div>
-            <div>{activeTomatoTask?.title}</div>
-            <TimeDisplaySC>{activeTomatoTask && Array.from(activeTomatoTask.displayTime).map(char => (
-              <NumberSpanSC>{char}</NumberSpanSC>))}</TimeDisplaySC>
-          </div>
+          <TimeDisplaySC>
+            {activeTomatoTask && Array.from(activeTomatoTask.displayTime).map(char => (
+              <NumberSpanSC>{char}</NumberSpanSC>))}
+            <div className="title">{activeTomatoTask?.title}</div>
+          </TimeDisplaySC>
         </ContentSC>
         {
           isAdd && (
@@ -203,16 +203,27 @@ const ContainerSC = styled('div')`
   background: rgb(49, 49, 49);
   min-height: 100vh;
   color: rgb(186, 186, 186);
-  width: 100%;
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
 `;
 
 const LeftMenuSC = styled('div')`
   background: rgb(59, 63, 67);
   width: 40%;
+  height: 100%;
   min-height: 100vh;
   box-sizing: border-box;
-  padding: 40px 20px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  padding-top: 40px;
+
+  @media (max-width: 680px) {
+    display: none;
+  }
 `;
 
 const AddSC = styled('div')`
@@ -223,6 +234,8 @@ const AddSC = styled('div')`
   justify-content: center;
   cursor: pointer;
   user-select: none;
+  margin-left: 20px;
+  margin-right: 20px;
 `;
 
 const InputSC = styled('input')`
@@ -237,7 +250,27 @@ const InputSC = styled('input')`
 `;
 
 const TodoContainerSC = styled('div')`
-  padding-top: 30px;
+  margin-top: 30px;
+  padding-left: 20px;
+  padding-right: 20px;
+  flex: 1;
+  overflow-y: scroll;
+  overflow-y: overlay;
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgb(73, 73, 74);
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-corner {
+  }
 `;
 
 const TodoItem = styled('div')`
@@ -278,10 +311,34 @@ const ContentSC = styled('div')`
 
 const TimeDisplaySC = styled('div')`
   display: flex;
+  position: relative;
+  
+  .title {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 100%;
+    width: fit-content;
+    margin: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  @media (max-height: 150px) {
+    .title {
+      display: none;
+    }
+  }
 `;
 
 const NumberSpanSC = styled('span')`
   width: 68px;
   font-weight: 600;
   font-size: 96px;
+
+  @media (max-height: 150px) {
+    font-size: 48px;
+    width: 38px;
+  }
 `;
