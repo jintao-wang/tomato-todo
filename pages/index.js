@@ -218,7 +218,7 @@ const LeftMenuSC = styled('div')`
 const AddSC = styled('div')`
   border: 1px solid rgb(186, 186, 186);
   border-radius: 4px;
-  padding: 10px 0;
+  padding: 20px 0 10px 0;
   display: flex;
   justify-content: center;
   cursor: pointer;
