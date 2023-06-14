@@ -56,6 +56,8 @@ export class TomatoTask {
         draft.$status = TOMATO_STATUS.PAUSED;
       } else if (draft.$status === TOMATO_STATUS.PAUSED) {
         draft.$status = TOMATO_STATUS.ONGOING;
+      }else if (draft.$status === TOMATO_STATUS.COMPLETED) {
+        draft.$status = TOMATO_STATUS.ONGOING;
       }
       draft.$updatedAt = new Date();
     })
