@@ -110,6 +110,10 @@ export class TomatoTask {
     return this.$currentTomatoTime;
   }
 
+  get completedTomatoes() {
+    return this.$completedTomatoes;
+  }
+
   get displayTime() {
     const seconds = TOMATO_TIME * 60 - this.$currentTomatoTime;
     const minute = Math.floor(seconds / 60) < 10 ? `0${Math.floor(seconds / 60)}` : Math.floor(seconds / 60);

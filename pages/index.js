@@ -7,6 +7,7 @@ import Script from "next/script";
 import {TomatoTask} from "@/model/TomatoTask";
 import {TOMATO_STATUS} from "@/enum/TomatoStatus";
 import {db} from "@/index_db/db";
+import TomatoIcon from "@/icons/TomatoIcon";
 
 
 const TOMATO_TIME = 25;
@@ -119,10 +120,10 @@ export default function Home() {
         draft[index] = newState;
       })
       const index = draft.findIndex(todo => todo.uuid === tomatoTaskUUID);
-      let todo = draft[index];
-      todo = todo.updateToNextStatus();
-      draft[index] = todo;
-      setOngoing(todo.onGoing);
+      const oldState = draft[index];
+      const newState = oldState.updateToNextStatus();
+      draft[index] = newState;
+      setOngoing(newState.onGoing);
     })
   }
 
@@ -135,6 +136,17 @@ export default function Home() {
       const oldState = draft[index];
       draft[index] = oldState.updateStatus(TOMATO_STATUS.DELETE);
     })
+  }
+
+  const tomatoRender = (num) => {
+    if(num <= 0) return null;
+    const items = [];
+
+    for (let i = 0; i < num; i++) {
+      items.push(<TomatoItemSC key={i}><TomatoIcon /></TomatoItemSC>);
+    }
+
+    return <TomatoContainerSC>{items}</TomatoContainerSC>;
   }
 
   return (
@@ -154,6 +166,7 @@ export default function Home() {
                   <TodoItem key={tomatoTask.uuid}>
                     <TodoTaskInfoSC>
                       {tomatoTask.title}
+                      {tomatoRender(tomatoTask.completedTomatoes)}
                     </TodoTaskInfoSC>
                     <TodoToolSC>
                       <div
@@ -274,7 +287,7 @@ const TodoContainerSC = styled('div')`
 `;
 
 const TodoItem = styled('div')`
-  height: 80px;
+  height: 88px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -288,7 +301,21 @@ const TodoItem = styled('div')`
 `;
 
 const TodoTaskInfoSC = styled('div')`
+  position: relative;
+`;
 
+const TomatoContainerSC = styled('div')`
+  position: absolute;
+  top: 100%;
+  display: flex;
+  margin-left: -5px;
+`;
+
+const TomatoItemSC = styled('div')`
+  .icon {
+    width: 16px;
+    height: 16px;
+  }
 `;
 
 const TodoToolSC = styled('div')`
