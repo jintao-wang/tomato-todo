@@ -1,1 +1,1 @@
-export const TOMATO_TIME = 1;
+export const TOMATO_TIME = 25;
