@@ -1,9 +1,12 @@
 import {default as getUUID} from "@/common/uuid";
-import {TOMATO_STATUS} from "@/enum/TomatoStatus";
-import {TOMATO_OPERATE} from "@/enum/TomatoOperate";
+import {TASK_STATUS} from "@/enum/TaskStatus";
+import {TOMATO_OPERATE} from "@/enum/TaskOperate";
 import {immerable, produce} from "immer";
+import {TomatoDetail} from "@/model/TomatoDetail";
+import {TOMATO_TIME} from "@/config";
+import {TOMATO_STATUS} from "@/enum/TomatoStatus";
+import dayjs from "dayjs";
 
-const TOMATO_TIME = 25;
 /**
  * Class representing a single task in a Tomato (Pomodoro) todo list.
  */
@@ -15,75 +18,82 @@ export class TomatoTask {
    * @param {string} TomatoTask.title - The title of the task.
    * @param {string} [TomatoTask.uuid] - The unique ID of the task.
    * @param {string} [TomatoTask.description] - The description of the task.
-   * @param {number} [TomatoTask.tomatoNum]
-   * @param {number} [TomatoTask.completedTomatoes] - The completed number of Pomodoros for this task.
-   * @param {number} [TomatoTask.currentTomatoTime]
-   * @param {TOMATO_STATUS} [TomatoTask.status] - The status of the task.
+   * @param {number} [TomatoTask.targetTomatoNum] - The description of the task.
+   * @param {TASK_STATUS} [TomatoTask.status] - The status of the task.
    * @param {Date} [TomatoTask.createdAt] - The date when the task was created.
    * @param {Date} [TomatoTask.updatedAt] - The date when the task was last updated.
+   * @param {[TomatoDetailType]} [TomatoTask.tomatoDetails] - tomatoDetails
    */
   constructor({
                 title,
                 description= '',
-                tomatoNum= 0,
-                completedTomatoes= 0,
-                currentTomatoTime= 0,
+                targetTomatoNum= 0,
                 uuid= getUUID(),
-                status= TOMATO_STATUS.PENDING,
+                status= TASK_STATUS.TODO,
                 createdAt= new Date(),
                 updatedAt= new Date(),
+                tomatoDetails = [],
   }) {
     this.$uuid = uuid;
     this.$title = title;
     this.$description = description;
-    this.$tomatoNum = tomatoNum;
-    this.$completedTomatoes = completedTomatoes;
-    this.$currentTomatoTime = currentTomatoTime;
+    this.$targetTomatoNum = targetTomatoNum;
     this.$status = status;
     this.$createdAt = createdAt;
     this.$updatedAt = updatedAt;
+    this.$tomatoDetails = tomatoDetails.map(tomatoDetail => new TomatoDetail(tomatoDetail));
   }
 
   /**
    * Update the status of the task.
-   * @param {TOMATO_STATUS} status - The new status of the task.
+   * @param {TASK_STATUS} status - The new status of the task.
    */
-  updateToNextStatus() {
+  updateTomatoToNextStatus() {
     return produce(this, draft => {
-      if (draft.$status === TOMATO_STATUS.PENDING) {
-        draft.$status = TOMATO_STATUS.ONGOING;
-      } else if (draft.$status === TOMATO_STATUS.ONGOING) {
-        draft.$status = TOMATO_STATUS.PAUSED;
-      } else if (draft.$status === TOMATO_STATUS.PAUSED) {
-        draft.$status = TOMATO_STATUS.ONGOING;
-      }else if (draft.$status === TOMATO_STATUS.COMPLETED) {
-        draft.$status = TOMATO_STATUS.ONGOING;
+      if(!draft.$tomatoDetails.length || draft.$tomatoDetails.at(-1).status === TOMATO_STATUS.COMPLETED) {
+        draft.$tomatoDetails.push(new TomatoDetail({}));
+      }else {
+        TomatoTask.updateCurrentTomato(draft, (currentTomato) => currentTomato.updateToNextStatus());
       }
       draft.$updatedAt = new Date();
     })
   }
 
-  updateStatus(status) {
+  /**
+   * Create a new TomatoDetail.
+   * @param {TASK_STATUS} status
+   */
+  updateTaskStatus(status) {
     return produce(this, draft => {
       draft.$status = status;
       draft.$updatedAt = new Date();
     })
   }
 
+  stopTomato() {
+    return produce(this, draft => {
+      TomatoTask.updateCurrentTomato(draft, (tomato) => tomato.pause())
+    })
+  }
+
   addCurrentTomatoTime(second) {
     return produce(this, draft => {
-      draft.$currentTomatoTime += second
+      TomatoTask.updateCurrentTomato(draft, (tomatoDetail) => tomatoDetail.addCurrentTomatoTime(second))
       draft.$updatedAt = new Date();
     })
   }
 
-  finishATomato() {
+  finishCurTomato() {
     return produce(this, draft => {
-      draft.$status = TOMATO_STATUS.COMPLETED;
-      draft.$completedTomatoes += 1;
-      draft.$currentTomatoTime = 0;
+      TomatoTask.updateCurrentTomato(draft, (tomato) => tomato.complete())
       draft.$updatedAt = new Date();
     })
+  }
+
+  static updateCurrentTomato(draftTask, fn) {
+    const currentTomatoDetailIndex =  draftTask.$tomatoDetails.length - 1;
+    const currentTomatoOldState = draftTask.$tomatoDetails[currentTomatoDetailIndex];
+    draftTask.$tomatoDetails[currentTomatoDetailIndex] = fn(currentTomatoOldState);
   }
 
   get uuid() {
@@ -99,7 +109,7 @@ export class TomatoTask {
   }
 
   get onGoing() {
-    return this.$status === TOMATO_STATUS.ONGOING;
+    return  this.$tomatoDetails.at(-1)?.status === TOMATO_STATUS.ONGOING;
   }
 
   get updatedAt() {
@@ -107,25 +117,42 @@ export class TomatoTask {
   }
 
   get currentTomatoTime() {
-    return this.$currentTomatoTime;
+    return this.$tomatoDetails.at(-1).tomatoTime;
   }
 
   get completedTomatoes() {
-    return this.$completedTomatoes;
+    return this.$tomatoDetails.filter(detail => detail.status === TOMATO_STATUS.COMPLETED);
+  }
+
+  get todayTomatoes() {
+    const todayDate = dayjs();
+    const today = todayDate.get('date');
+    const toMonth = todayDate.get('month');
+
+    return this.$tomatoDetails.filter(detail => {
+      if(detail.status !== TOMATO_STATUS.COMPLETED) return false;
+      const finishDate = dayjs(detail.endAt);
+      const finishDay = finishDate.get('date');
+      const finishMonth = finishDate.get('month');
+
+      return (today === finishDay) && (toMonth === finishMonth);
+    });
   }
 
   get displayTime() {
-    const seconds = TOMATO_TIME * 60 - this.$currentTomatoTime;
+    const time = TOMATO_TIME * 60 * 1000 - this.currentTomatoTime;
+    const seconds = Math.round( time/1000);
     const minute = Math.floor(seconds / 60) < 10 ? `0${Math.floor(seconds / 60)}` : Math.floor(seconds / 60);
     const second = seconds % 60 < 10 ? `0${seconds % 60}` : seconds % 60;
     return `${minute}:${second}`
   }
 
   get operate() {
-    if(this.$status === TOMATO_STATUS.PENDING) return TOMATO_OPERATE.START;
-    if(this.$status === TOMATO_STATUS.ONGOING) return TOMATO_OPERATE.PAUSE;
-    if(this.$status === TOMATO_STATUS.PAUSED) return TOMATO_OPERATE.CONTINUE;
-    if(this.$status === TOMATO_STATUS.COMPLETED) return TOMATO_OPERATE.START;
+    if(!this.$tomatoDetails.length) return TOMATO_OPERATE.START;
+    const currentTomato = this.$tomatoDetails.at(-1);
+    if(currentTomato.status === TOMATO_STATUS.ONGOING) return TOMATO_OPERATE.PAUSE;
+    if(currentTomato.status === TOMATO_STATUS.PAUSED) return TOMATO_OPERATE.CONTINUE;
+    if(currentTomato.status === TOMATO_STATUS.COMPLETED) return TOMATO_OPERATE.START;
     return null
   }
 
@@ -134,12 +161,11 @@ export class TomatoTask {
       uuid: this.$uuid,
       title: this.$title,
       description: this.$description,
-      tomatoNum: this.$tomatoNum,
-      completedTomatoes: this.$completedTomatoes,
-      currentTomatoTime: this.$currentTomatoTime,
+      targetTomatoNum: this.$targetTomatoNum,
       status: this.$status,
       createdAt: this.$createdAt,
       updatedAt: this.$updatedAt,
+      tomatoDetails: this.$tomatoDetails.map(detail => detail.storeIndexDBData),
     }
   }
 }

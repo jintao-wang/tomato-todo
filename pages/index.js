@@ -5,12 +5,12 @@ import InputContainer from "@/basic_components/input_container";
 import {useImmer} from "use-immer";
 import Script from "next/script";
 import {TomatoTask} from "@/model/TomatoTask";
-import {TOMATO_STATUS} from "@/enum/TomatoStatus";
+import {TASK_STATUS} from "@/enum/TaskStatus";
 import {db} from "@/index_db/db";
 import TomatoIcon from "@/icons/TomatoIcon";
+import {TOMATO_TIME} from "@/config";
 
 
-const TOMATO_TIME = 25;
 export default function Home() {
   const [tomatoTaskList, updateTomatoTaskList] = useImmer([]);
   const [isAdd, setIsAdd] = useState(false);
@@ -22,16 +22,12 @@ export default function Home() {
 
   useEffect(() => {
     db.taskList.toArray().then(list => {
+      if(list.length) {
+        setActiveTomatoTaskUUID(list[0].uuid);
+      }
       updateTomatoTaskList(draft => {
         draft.length = 0;
         list.forEach(task => {
-          if (task.status === TOMATO_STATUS.ONGOING) {
-            setActiveTomatoTaskUUID(task.uuid);
-            task.status = TOMATO_STATUS.PAUSED;
-          }
-          if (task.status === TOMATO_STATUS.PAUSED) {
-            setActiveTomatoTaskUUID(task.uuid);
-          }
           draft.push(new TomatoTask(task));
         })
       })
@@ -60,15 +56,15 @@ export default function Home() {
       setIntervalInWorker(() => {
         updateTomatoTaskList(draft => {
           const index = draft.findIndex(todo => todo.uuid === activeTomatoUUID);
-          let todo = draft[index];
-          if (todo.currentTomatoTime < TOMATO_TIME * 60) {
-            todo = todo.addCurrentTomatoTime(1);
+          let task = draft[index];
+          if (task.currentTomatoTime < TOMATO_TIME * 60 * 1000) {
+            task = task.addCurrentTomatoTime(1);
           } else {
             notification('已完成一个番茄todo');
-            todo = todo.finishATomato();
+            task = task.finishCurTomato();
             setOngoing(false);
           }
-          draft[index] = todo;
+          draft[index] = task;
         })
       }, 1000).then(_timer => timer = _timer)
     }
@@ -113,15 +109,17 @@ export default function Home() {
   const handleStatusChange = (tomatoTaskUUID) => {
     setActiveTomatoTaskUUID(tomatoTaskUUID);
     updateTomatoTaskList(draft => {
-      const ongoingItems = draft.filter(todo => todo.status === TOMATO_STATUS.ONGOING && todo.uuid !== tomatoTaskUUID);
+
+      const ongoingItems = draft.filter(todo => todo.onGoing && todo.uuid !== tomatoTaskUUID);
       ongoingItems.forEach(ongoingItem => {
-        const newState = ongoingItem.updateStatus(TOMATO_STATUS.PAUSED);
+        const newState = ongoingItem.stopTomato();
         const index = draft.findIndex(todo => todo.uuid === ongoingItem.uuid);
         draft[index] = newState;
       })
+
       const index = draft.findIndex(todo => todo.uuid === tomatoTaskUUID);
       const oldState = draft[index];
-      const newState = oldState.updateToNextStatus();
+      const newState = oldState.updateTomatoToNextStatus();
       draft[index] = newState;
       setOngoing(newState.onGoing);
     })
@@ -134,11 +132,12 @@ export default function Home() {
     updateTomatoTaskList(draft => {
       const index = draft.findIndex(todo => todo.uuid === tomatoTaskUUID);
       const oldState = draft[index];
-      draft[index] = oldState.updateStatus(TOMATO_STATUS.DELETE);
+      draft[index] = oldState.updateTaskStatus(TASK_STATUS.DELETE);
     })
+    setOngoing(false);
   }
 
-  const tomatoRender = (num) => {
+  const todayTomatoRender = (num) => {
     if(num <= 0) return null;
     const items = [];
 
@@ -161,12 +160,22 @@ export default function Home() {
           <TodoContainerSC>
             {
               tomatoTaskList
-                .filter(tomatoTask => tomatoTask.status !== TOMATO_STATUS.DELETE)
+                .filter(tomatoTask => tomatoTask.status !== TASK_STATUS.DELETE)
                 .map(tomatoTask => (
-                  <TodoItem key={tomatoTask.uuid}>
+                  <TodoItemSC key={tomatoTask.uuid}>
                     <TodoTaskInfoSC>
-                      {tomatoTask.title}
-                      {tomatoRender(tomatoTask.completedTomatoes)}
+                      <TodoTaskTitleSC>
+                        {tomatoTask.title}
+                      </TodoTaskTitleSC>
+                      {
+                        tomatoTask.completedTomatoes.length > 0 && (
+                          <TotalTomatoSC>
+                            <TomatoIcon />
+                            {`*${tomatoTask.completedTomatoes.length}`}
+                          </TotalTomatoSC>
+                        )
+                      }
+                      {todayTomatoRender(tomatoTask.todayTomatoes.length)}
                     </TodoTaskInfoSC>
                     <TodoToolSC>
                       <div
@@ -177,7 +186,7 @@ export default function Home() {
                       </div>
                       <div onClick={() => handleStatusChange(tomatoTask.uuid)}>{tomatoTask.operate}</div>
                     </TodoToolSC>
-                  </TodoItem>
+                  </TodoItemSC>
                 ))
             }
           </TodoContainerSC>
@@ -226,7 +235,7 @@ const ContainerSC = styled('div')`
 
 const LeftMenuSC = styled('div')`
   background: rgb(59, 63, 67);
-  width: 40%;
+  width: 480px;
   height: 100%;
   min-height: 100vh;
   box-sizing: border-box;
@@ -234,7 +243,7 @@ const LeftMenuSC = styled('div')`
   flex-direction: column;
   padding-top: 40px;
 
-  @media (max-width: 680px) {
+  @media (max-width: 780px) {
     display: none;
   }
 `;
@@ -286,7 +295,7 @@ const TodoContainerSC = styled('div')`
   }
 `;
 
-const TodoItem = styled('div')`
+const TodoItemSC = styled('div')`
   height: 88px;
   display: flex;
   align-items: center;
@@ -302,6 +311,28 @@ const TodoItem = styled('div')`
 
 const TodoTaskInfoSC = styled('div')`
   position: relative;
+  flex: 1;
+  display: flex;
+  box-sizing: border-box;
+  padding-right: 30px;
+`;
+
+const TodoTaskTitleSC = styled('div')`
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 240px;
+`;
+
+const TotalTomatoSC = styled('div')`
+  margin-left: 10px;
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  .icon {
+    width: 16px;
+    height: 16px;
+  }
 `;
 
 const TomatoContainerSC = styled('div')`

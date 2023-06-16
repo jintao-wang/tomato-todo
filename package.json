@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "comlink": "^4.4.1",
+    "dayjs": "^1.11.8",
     "dexie": "^3.2.4",
     "immer": "^10.0.2",
     "next": "13.4.4",

@@ -4,9 +4,8 @@
  * @enum {string}
  */
 export const TOMATO_STATUS = {
-  PENDING:'pending',
-  ONGOING:'ongoing',
-  PAUSED:'paused',
+  DISCARDED:'discarded',
   COMPLETED:'completed',
-  DELETE:'delete',
+  ONGOING: 'ongoing',
+  PAUSED:'paused',
 }
