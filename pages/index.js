@@ -9,6 +9,7 @@ import {TASK_STATUS} from "@/enum/TaskStatus";
 import {db} from "@/index_db/db";
 import TomatoIcon from "@/icons/TomatoIcon";
 import {TOMATO_TIME} from "@/config";
+import {TOMATO_OPERATE} from "@/enum/TaskOperate";
 
 
 export default function Home() {
@@ -125,6 +126,26 @@ export default function Home() {
     })
   }
 
+  const finishCurTomato = () => {
+    updateTomatoTaskList(draft => {
+      const index = draft.findIndex(todo => todo.uuid === activeTomatoUUID);
+      const oldState = draft[index];
+      const newState = oldState.finishCurTomato();
+      draft[index] = newState;
+      setOngoing(newState.onGoing);
+    })
+  }
+
+  const discardedCurTomato = () => {
+    updateTomatoTaskList(draft => {
+      const index = draft.findIndex(todo => todo.uuid === activeTomatoUUID);
+      const oldState = draft[index];
+      const newState = oldState.discardedCurTomato();
+      draft[index] = newState;
+      setOngoing(newState.onGoing);
+    })
+  }
+
   const handleDelete = (tomatoTaskUUID) => {
     if (activeTomatoUUID === tomatoTaskUUID) {
       setActiveTomatoTaskUUID(null);
@@ -196,6 +217,30 @@ export default function Home() {
             {activeTomatoTask && Array.from(activeTomatoTask.displayTime).map(char => (
               <NumberSpanSC>{char}</NumberSpanSC>))}
             <div className="title">{activeTomatoTask?.title}</div>
+            {
+              activeTomatoTask && (
+                <div className="operate-container">
+                  <div
+                    className="operate-item"
+                    onClick={discardedCurTomato}
+                  >
+                    {TOMATO_OPERATE.DISCARDED}
+                  </div>
+                  <div
+                    className="operate-item"
+                    onClick={() => handleStatusChange(activeTomatoTask.uuid)}
+                  >
+                    {activeTomatoTask.operate}
+                  </div>
+                  <div
+                    className="operate-item"
+                    onClick={finishCurTomato}
+                  >
+                    {TOMATO_OPERATE.COMPLETED}
+                  </div>
+                </div>
+              )
+            }
           </TimeDisplaySC>
         </ContentSC>
         {
@@ -383,11 +428,29 @@ const TimeDisplaySC = styled('div')`
     white-space: nowrap;
   }
 
-  @media (max-height: 150px) {
-    .title {
-      display: none;
+  .operate-container {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 100%;
+    width: 100%;
+    margin: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: flex;
+    justify-content: space-between;
+    
+    .operate-item {
+      cursor: pointer;
     }
   }
+
+  //@media (max-height: 350px) {
+  //  .title {
+  //    display: none;
+  //  }
+  //}
 `;
 
 const NumberSpanSC = styled('span')`
@@ -395,7 +458,7 @@ const NumberSpanSC = styled('span')`
   font-weight: 600;
   font-size: 96px;
 
-  @media (max-height: 150px) {
+  @media (max-height: 350px) {
     font-size: 48px;
     width: 38px;
   }

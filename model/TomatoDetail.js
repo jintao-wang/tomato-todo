@@ -81,6 +81,13 @@ export class TomatoDetail {
     })
   }
 
+  discarded() {
+    return produce(this, draft => {
+      draft.$endAt = new Date();
+      draft.$status = TOMATO_STATUS.DISCARDED;
+    })
+  }
+
   $getPausedTotalTime() {
     let totalTime = 0;
     this.$pausedTimes.forEach((pausedTimes) => {

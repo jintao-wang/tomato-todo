@@ -50,7 +50,11 @@ export class TomatoTask {
    */
   updateTomatoToNextStatus() {
     return produce(this, draft => {
-      if(!draft.$tomatoDetails.length || draft.$tomatoDetails.at(-1).status === TOMATO_STATUS.COMPLETED) {
+      if(
+        !draft.$tomatoDetails.length
+        || draft.$tomatoDetails.at(-1).status === TOMATO_STATUS.COMPLETED
+        || draft.$tomatoDetails.at(-1).status === TOMATO_STATUS.DISCARDED
+      ) {
         draft.$tomatoDetails.push(new TomatoDetail({}));
       }else {
         TomatoTask.updateCurrentTomato(draft, (currentTomato) => currentTomato.updateToNextStatus());
@@ -85,7 +89,20 @@ export class TomatoTask {
 
   finishCurTomato() {
     return produce(this, draft => {
-      TomatoTask.updateCurrentTomato(draft, (tomato) => tomato.complete())
+      TomatoTask.updateCurrentTomato(draft, (tomato) => {
+        if(draft.tomatoTime < TOMATO_TIME/5*60*1000) {
+          return tomato.discarded()
+        }else {
+          return tomato.complete()
+        }
+      })
+      draft.$updatedAt = new Date();
+    })
+  }
+
+  discardedCurTomato() {
+    return produce(this, draft => {
+      TomatoTask.updateCurrentTomato(draft, (tomato) => tomato.discarded())
       draft.$updatedAt = new Date();
     })
   }
@@ -117,7 +134,12 @@ export class TomatoTask {
   }
 
   get currentTomatoTime() {
-    return this.$tomatoDetails.at(-1).tomatoTime;
+    const activeTomato = this.$tomatoDetails.at(-1);
+    if(activeTomato.status === TOMATO_STATUS.ONGOING || activeTomato.status === TOMATO_STATUS.PAUSED) {
+      return activeTomato.tomatoTime;
+    }else if(activeTomato.status === TOMATO_STATUS.DISCARDED || activeTomato.status === TOMATO_STATUS.COMPLETED) {
+      return 0;
+    }
   }
 
   get completedTomatoes() {
@@ -153,6 +175,7 @@ export class TomatoTask {
     if(currentTomato.status === TOMATO_STATUS.ONGOING) return TOMATO_OPERATE.PAUSE;
     if(currentTomato.status === TOMATO_STATUS.PAUSED) return TOMATO_OPERATE.CONTINUE;
     if(currentTomato.status === TOMATO_STATUS.COMPLETED) return TOMATO_OPERATE.START;
+    if(currentTomato.status === TOMATO_STATUS.DISCARDED) return TOMATO_OPERATE.START;
     return null
   }
 
