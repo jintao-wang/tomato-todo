@@ -13,6 +13,7 @@ export class AuthManager {
   }
 
   onAuthChange(callback) {
+    const url = process.env.NEXT_PUBLIC_ENV === 'development' ? 'https://tomato-todo.vercel.app' : 'http://localhost:3000';
     if(AuthManager.$isAuthenticated()) {
       const time = new Date().getTime() + AuthManager.$getExpireInFromUrl()*1000;
       authDB.auth.get('user').then(async authData => {
@@ -23,7 +24,7 @@ export class AuthManager {
             expiresIn: time,
           }).then(() => {
             callback(true);
-            window.open('http://localhost:3000', '_self');
+            window.open(url, '_self');
           });
         }else {
           authDB.auth.add({
@@ -32,7 +33,7 @@ export class AuthManager {
             expiresIn: time,
           }).then(() => {
             callback(true);
-            window.open('http://localhost:3000', '_self');
+            window.open(url, '_self');
           });
         }
       });
@@ -49,8 +50,9 @@ export class AuthManager {
   }
 
   async signIn() {
+    const url = process.env.NEXT_PUBLIC_ENV === 'development' ? 'https://tomato-todo.vercel.app' : 'http://localhost:3000';
     const dbx = new Dropbox({ clientId: process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID });
-    dbx.auth.getAuthenticationUrl('http://localhost:3000').then(url => {
+    dbx.auth.getAuthenticationUrl(url).then(url => {
       window.open(url, '_self');
     })
   }
