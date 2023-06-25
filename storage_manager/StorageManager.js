@@ -57,7 +57,7 @@ export class StorageManager {
   }, 30000)
 
   $getTaskListFromRemote(dbx) {
-    const path = process.env.NEXT_PUBLIC_ENV === 'development' ? '/dev/index.json' : 'index.json';
+    const path = process.env.NEXT_PUBLIC_ENV === 'development' ? '/dev/index.json' : '/index.json';
     return dbx.filesDownload({path})
       .then((response) => new Promise(resolve => {
         const blob = response.result.fileBlob; // Blob object contains the file data
@@ -126,7 +126,7 @@ export class StorageManager {
 
     if(change) {
       Promise.all(newFileListPromise).then((newFileList) => {
-        const path = process.env.NEXT_PUBLIC_ENV === 'development' ? '/dev/index.json' : 'index.json';
+        const path = process.env.NEXT_PUBLIC_ENV === 'development' ? '/dev/index.json' : '/index.json';
         // 将 JSON 对象转化为字符串
         const jsonString = JSON.stringify(newFileList);
 
