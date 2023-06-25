@@ -20,8 +20,8 @@ export class TomatoTask {
    * @param {string} [TomatoTask.description] - The description of the task.
    * @param {number} [TomatoTask.targetTomatoNum] - The description of the task.
    * @param {TASK_STATUS} [TomatoTask.status] - The status of the task.
-   * @param {Date} [TomatoTask.createdAt] - The date when the task was created.
-   * @param {Date} [TomatoTask.updatedAt] - The date when the task was last updated.
+   * @param {string} [TomatoTask.createdAt] - The date when the task was created.
+   * @param {string} [TomatoTask.updatedAt] - The date when the task was last updated.
    * @param {[TomatoDetailType]} [TomatoTask.tomatoDetails] - tomatoDetails
    */
   constructor({
@@ -30,8 +30,8 @@ export class TomatoTask {
                 targetTomatoNum= 0,
                 uuid= getUUID(),
                 status= TASK_STATUS.TODO,
-                createdAt= new Date(),
-                updatedAt= new Date(),
+                createdAt= new Date().toISOString(),
+                updatedAt= new Date().toISOString(),
                 tomatoDetails = [],
   }) {
     this.$uuid = uuid;
@@ -59,7 +59,7 @@ export class TomatoTask {
       }else {
         TomatoTask.updateCurrentTomato(draft, (currentTomato) => currentTomato.updateToNextStatus());
       }
-      draft.$updatedAt = new Date();
+      draft.$updatedAt = new Date().toISOString();
     })
   }
 
@@ -70,7 +70,7 @@ export class TomatoTask {
   updateTaskStatus(status) {
     return produce(this, draft => {
       draft.$status = status;
-      draft.$updatedAt = new Date();
+      draft.$updatedAt = new Date().toISOString();
     })
   }
 
@@ -83,7 +83,7 @@ export class TomatoTask {
   addCurrentTomatoTime(second) {
     return produce(this, draft => {
       TomatoTask.updateCurrentTomato(draft, (tomatoDetail) => tomatoDetail.addCurrentTomatoTime(second))
-      draft.$updatedAt = new Date();
+      draft.$updatedAt = new Date().toISOString();
     })
   }
 
@@ -96,14 +96,14 @@ export class TomatoTask {
           return tomato.complete()
         }
       })
-      draft.$updatedAt = new Date();
+      draft.$updatedAt = new Date().toISOString();
     })
   }
 
   discardedCurTomato() {
     return produce(this, draft => {
       TomatoTask.updateCurrentTomato(draft, (tomato) => tomato.discarded())
-      draft.$updatedAt = new Date();
+      draft.$updatedAt = new Date().toISOString();
     })
   }
 
@@ -135,6 +135,7 @@ export class TomatoTask {
 
   get currentTomatoTime() {
     const activeTomato = this.$tomatoDetails.at(-1);
+    if(!activeTomato) return 0;
     if(activeTomato.status === TOMATO_STATUS.ONGOING || activeTomato.status === TOMATO_STATUS.PAUSED) {
       return activeTomato.tomatoTime;
     }else if(activeTomato.status === TOMATO_STATUS.DISCARDED || activeTomato.status === TOMATO_STATUS.COMPLETED) {

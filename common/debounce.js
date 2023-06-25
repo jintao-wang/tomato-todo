@@ -1,7 +1,13 @@
-export function debounce(fn, ms) {
-  let timer;
+export function debounce(fn, ms, immediate = false) {
+  let timer = null;
+
   return function (...args) {
+    const callNow = immediate && !timer;
     clearTimeout(timer);
-    timer = setTimeout(() => fn.apply(this, args), ms)
+    timer = setTimeout(() => {
+      timer = null;
+      if (!immediate) return fn.apply(this, args);
+    }, ms);
+    if (callNow) fn.apply(this, args);
   }
 }

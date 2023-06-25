@@ -6,12 +6,14 @@ import {useImmer} from "use-immer";
 import Script from "next/script";
 import {TomatoTask} from "@/model/TomatoTask";
 import {TASK_STATUS} from "@/enum/TaskStatus";
-import {db} from "@/index_db/db";
 import TomatoIcon from "@/icons/TomatoIcon";
 import {TOMATO_TIME} from "@/config";
 import {TOMATO_OPERATE} from "@/enum/TaskOperate";
+import TopBar from "@/business_components/top_bar";
+import useSWR from "swr";
+import {StorageManager} from "@/storage_manager/StorageManager";
 
-
+const storageManager = new StorageManager();
 export default function Home() {
   const [tomatoTaskList, updateTomatoTaskList] = useImmer([]);
   const [isAdd, setIsAdd] = useState(false);
@@ -19,31 +21,48 @@ export default function Home() {
   const [ongoing, setOngoing] = useState(false);
 
   const activeTomatoTask = useMemo(() => tomatoTaskList.find(task => task.uuid === activeTomatoUUID), [tomatoTaskList, activeTomatoUUID])
+  const {
+    data: allTaskList,
+    error: getRemoteDataError,
+  } = useSWR('getTaskList', storageManager.getTaskList.bind(storageManager));
 
 
   useEffect(() => {
-    db.taskList.toArray().then(list => {
-      if(list.length) {
-        setActiveTomatoTaskUUID(list[0].uuid);
-      }
+    if(allTaskList?.length) {
+      setActiveTomatoTaskUUID(allTaskList[0].uuid);
       updateTomatoTaskList(draft => {
         draft.length = 0;
-        list.forEach(task => {
+        allTaskList.forEach(task => {
           draft.push(new TomatoTask(task));
         })
       })
+    }
+  }, [allTaskList])
 
-    })
+  useEffect(() => {
+    const handleStorageChangeListener = (taskList) => {
+      updateTomatoTaskList(draft => {
+        draft.length = 0;
+        taskList.forEach(task => {
+          draft.push(new TomatoTask(task));
+        })
+      })
+    }
+    storageManager.addStorageChangeListener(handleStorageChangeListener);
+
+    return () => {
+      storageManager.removeStorageChangeListener(handleStorageChangeListener);
+    }
   }, [])
 
   useEffect(() => {
     tomatoTaskList.forEach(task => {
-      db.taskList.get(task.uuid).then(dbTask => {
+      storageManager.getTask(task.uuid).then(dbTask => {
         if (!dbTask) {
-          db.taskList.add(task.storeIndexDBData)
+          storageManager.addTask(task.storeIndexDBData)
         } else {
-          if (dbTask.updatedAt.getTime() < task.updatedAt.getTime()) {
-            db.taskList.put(task.storeIndexDBData)
+          if (new Date(dbTask.updatedAt).getTime() < new Date(task.updatedAt).getTime()) {
+            storageManager.putTask(task.storeIndexDBData)
           }
         }
       });
@@ -213,35 +232,38 @@ export default function Home() {
           </TodoContainerSC>
         </LeftMenuSC>
         <ContentSC>
-          <TimeDisplaySC>
-            {activeTomatoTask && Array.from(activeTomatoTask.displayTime).map(char => (
-              <NumberSpanSC>{char}</NumberSpanSC>))}
-            <div className="title">{activeTomatoTask?.title}</div>
-            {
-              activeTomatoTask && (
-                <div className="operate-container">
-                  <div
-                    className="operate-item"
-                    onClick={discardedCurTomato}
-                  >
-                    {TOMATO_OPERATE.DISCARDED}
+          <TopBar />
+          <div className="content">
+            <TimeDisplaySC>
+              {activeTomatoTask && Array.from(activeTomatoTask.displayTime).map(char => (
+                <NumberSpanSC>{char}</NumberSpanSC>))}
+              <div className="title">{activeTomatoTask?.title}</div>
+              {
+                activeTomatoTask && (
+                  <div className="operate-container">
+                    <div
+                      className="operate-item"
+                      onClick={discardedCurTomato}
+                    >
+                      {TOMATO_OPERATE.DISCARDED}
+                    </div>
+                    <div
+                      className="operate-item"
+                      onClick={() => handleStatusChange(activeTomatoTask.uuid)}
+                    >
+                      {activeTomatoTask.operate}
+                    </div>
+                    <div
+                      className="operate-item"
+                      onClick={finishCurTomato}
+                    >
+                      {TOMATO_OPERATE.COMPLETED}
+                    </div>
                   </div>
-                  <div
-                    className="operate-item"
-                    onClick={() => handleStatusChange(activeTomatoTask.uuid)}
-                  >
-                    {activeTomatoTask.operate}
-                  </div>
-                  <div
-                    className="operate-item"
-                    onClick={finishCurTomato}
-                  >
-                    {TOMATO_OPERATE.COMPLETED}
-                  </div>
-                </div>
-              )
-            }
-          </TimeDisplaySC>
+                )
+              }
+            </TimeDisplaySC>
+          </div>
         </ContentSC>
         {
           isAdd && (
@@ -405,11 +427,29 @@ const TodoToolSC = styled('div')`
 
 const ContentSC = styled('div')`
   flex: 1;
+  width: 0;
   min-height: 100vh;
   display: flex;
-  justify-content: center;
   align-items: center;
-  text-align: center;
+  box-sizing: border-box;
+
+  overflow: hidden;
+  position: relative;
+  flex-direction: column;
+  padding-top: constant(safe-area-inset-top);
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-right: constant(safe-area-inset-right);
+
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-right: env(safe-area-inset-right);
+  
+  .content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    text-align: center;
+  }
 `;
 
 const TimeDisplaySC = styled('div')`

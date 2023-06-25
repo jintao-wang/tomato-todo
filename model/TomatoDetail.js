@@ -10,7 +10,7 @@ export class TomatoDetail {
    */
   constructor({
                 uuid= getUUID(),
-                startAt= new Date(),
+                startAt= new Date().toISOString(),
                 endAt = null,
                 status= TOMATO_STATUS.ONGOING,
                 pausedTimes= [],
@@ -44,7 +44,7 @@ export class TomatoDetail {
   addCurrentTomatoTime(second) {
     return produce(this, draft => {
       draft.$currentTomatoSecond += second;
-      draft.$currentTomatoDate = new Date();
+      draft.$currentTomatoDate = new Date().toISOString();
     })
   }
 
@@ -60,7 +60,7 @@ export class TomatoDetail {
     return produce(this, draft => {
       draft.$status = TOMATO_STATUS.PAUSED;
       draft.$pausedTimes.push({
-        startAt:  new Date(),
+        startAt:  new Date().toISOString(),
         endAt: null,
       });
     })
@@ -70,20 +70,20 @@ export class TomatoDetail {
     return produce(this, draft => {
       draft.$status = TOMATO_STATUS.ONGOING;
       const pausedIndex = this.$pausedTimes.length - 1;
-      draft.$pausedTimes[pausedIndex].endAt = new Date();
+      draft.$pausedTimes[pausedIndex].endAt = new Date().toISOString();
     })
   }
 
   complete() {
     return produce(this, draft => {
-      draft.$endAt = new Date();
+      draft.$endAt = new Date().toISOString();
       draft.$status = TOMATO_STATUS.COMPLETED;
     })
   }
 
   discarded() {
     return produce(this, draft => {
-      draft.$endAt = new Date();
+      draft.$endAt = new Date().toISOString();
       draft.$status = TOMATO_STATUS.DISCARDED;
     })
   }
@@ -92,9 +92,9 @@ export class TomatoDetail {
     let totalTime = 0;
     this.$pausedTimes.forEach((pausedTimes) => {
       if(pausedTimes.endAt) {
-        totalTime += pausedTimes.endAt.getTime() - pausedTimes.startAt.getTime();
+        totalTime += new Date(pausedTimes.endAt).getTime() - new Date(pausedTimes.startAt).getTime();
       }else {
-        totalTime += new Date().getTime() - pausedTimes.startAt.getTime();
+        totalTime += new Date().getTime() - new Date(pausedTimes.startAt).getTime();
       }
     })
     return totalTime;
@@ -109,14 +109,14 @@ export class TomatoDetail {
   }
 
   get tomatoTimeDraft() {
-    const start = this.$startAt.getTime();
+    const start = new Date(this.$startAt).getTime();
     const current = new Date().getTime();
     if(this.$status === TOMATO_STATUS.ONGOING) {
       return current - start - this.$getPausedTotalTime();
     }else if(this.$status === TOMATO_STATUS.PAUSED) {
       return current - start - this.$getPausedTotalTime();
     }else if(this.$status === TOMATO_STATUS.COMPLETED) {
-      const end = this.$endAt.getTime();
+      const end = new Date(this.$endAt).getTime();
       return end - start;
     }
   }
