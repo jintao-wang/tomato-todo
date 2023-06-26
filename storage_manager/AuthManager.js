@@ -13,7 +13,7 @@ export class AuthManager {
   }
 
   onAuthChange(callback) {
-    const url = process.env.NEXT_PUBLIC_ENV === 'development' ? 'http://localhost:3000' : 'https://tomato-todo.vercel.app';
+    const url = process.env.NEXT_PUBLIC_ENV === 'development' ? 'https://donote.wpl.best:2999' : 'https://tomato-todo.vercel.app';
     if(AuthManager.$isAuthenticated()) {
       const time = new Date().getTime() + AuthManager.$getExpireInFromUrl()*1000;
       authDB.auth.get('user').then(async authData => {
@@ -50,7 +50,7 @@ export class AuthManager {
   }
 
   async signIn() {
-    const url = process.env.NEXT_PUBLIC_ENV === 'development' ? 'http://localhost:3000' : 'https://tomato-todo.vercel.app';
+    const url = process.env.NEXT_PUBLIC_ENV === 'development' ? 'https://donote.wpl.best:2999' : 'https://tomato-todo.vercel.app';
     const dbx = new Dropbox({ clientId: process.env.NEXT_PUBLIC_DROPBOX_CLIENT_ID });
     dbx.auth.getAuthenticationUrl(url).then(url => {
       window.open(url, '_self');

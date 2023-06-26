@@ -29,7 +29,12 @@ export default function Home() {
 
   useEffect(() => {
     if(allTaskList?.length) {
-      setActiveTomatoTaskUUID(allTaskList[0].uuid);
+      setActiveTomatoTaskUUID((uuid) => {
+        if(!uuid) {
+          return allTaskList[0].uuid
+        }
+        return uuid;
+      });
       updateTomatoTaskList(draft => {
         draft.length = 0;
         allTaskList.forEach(task => {
