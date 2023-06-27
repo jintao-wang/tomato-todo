@@ -31,6 +31,10 @@ const ContainerSC = styled('div')`
   height: fit-content;
   position: relative;
   min-height: 30px;
+
+  @media (max-height: 350px) {
+    display: none;
+  }
 `;
 
 const BackSC = styled('div')`
