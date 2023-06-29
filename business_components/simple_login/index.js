@@ -1,20 +1,20 @@
 import React, { useCallback, useEffect } from 'react';
 import styled from 'styled-components';
-import useStore from "@/store";
-import {AuthManager} from "@/storage_manager/AuthManager";
+import useStore from '@/store';
+import { AuthManager } from '@/storage_manager/AuthManager';
 
 const authManager = new AuthManager();
 
 // 读取fileList folderList
 export default function SimpleLogin() {
-  const [isLogin, updateIsLogin] = useStore('isLogin');
+  const [isLogin, updateIsLogin] = useStore.isLogin();
 
   useEffect(() => {
     authManager.onAuthChange((isAuth) => {
-      updateIsLogin(draftRef => {
+      updateIsLogin((draftRef) => {
         draftRef.current = isAuth;
-      })
-    }, [])
+      });
+    }, []);
   }, []);
 
   return (

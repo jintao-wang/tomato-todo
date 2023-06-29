@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
+import { BREAK_POINTS } from '@/enum/BreakPoints';
 import useStore from '../store';
-import {BREAK_POINTS} from "@/enum/BreakPoints";
 
 export default function useDeviceInfo() {
-  const [, updateDeviceInfo] = useStore('deviceInfo');
+  const [, updateDeviceInfo] = useStore.deviceInfo();
 
   useEffect(() => {
     const deviceInfo = {

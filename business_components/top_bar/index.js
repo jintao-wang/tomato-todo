@@ -10,7 +10,7 @@ export default function TopBar({
                                  editorRef,
                                  onFileTextChange,
                                }) {
-  const [deviceInfo] = useStore('deviceInfo');
+  const [deviceInfo] = useStore.deviceInfo();
 
   return (
     <ContainerSC>

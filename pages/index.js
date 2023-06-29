@@ -1,197 +1,68 @@
-import React, {useEffect, useMemo, useRef, useState} from "react";
-import styled from "styled-components";
-import GlobalClose from "@/basic_components/global_close";
-import InputContainer from "@/basic_components/input_container";
-import {useImmer} from "use-immer";
-import Script from "next/script";
-import {TomatoTask} from "@/model/TomatoTask";
-import {TASK_STATUS} from "@/enum/TaskStatus";
-import TomatoIcon from "@/icons/TomatoIcon";
-import {TOMATO_TIME} from "@/config";
-import {TOMATO_OPERATE} from "@/enum/TaskOperate";
-import TopBar from "@/business_components/top_bar";
-import useSWR from "swr";
-import {StorageManager} from "@/storage_manager/StorageManager";
+import React, { useState, useMemo } from 'react';
 
-const storageManager = new StorageManager();
+import styled from 'styled-components';
+import Script from 'next/script';
+import { TOMATO_OPERATE } from '@/enum/TaskOperate';
+import TopBar from '@/business_components/top_bar';
+import { LeftMenu } from '@/business_components/left_menu';
+import useStore from '@/store';
+import { BREAK_POINTS } from '@/enum/BreakPoints';
+import TouchCommon from '@/basic_components/touch_common/TouchCommon';
+import { isIpadOS } from '@/common/isIpadOS';
+
 export default function Home() {
-  const [tomatoTaskList, updateTomatoTaskList] = useImmer([]);
-  const [isAdd, setIsAdd] = useState(false);
-  const [activeTomatoUUID, setActiveTomatoTaskUUID] = useState(null);
-  const [ongoing, setOngoing] = useState(false);
+  const [tomatoTaskList, updateTomatoTaskList] = useStore.tomatoTaskList();
+  const [activeTomatoUUID, updateActiveTomatoTaskUUID] = useStore.activeTomatoUUID();
+  const [, updateOngoing] = useStore.ongoing();
+  const [leftMenuDisplay, updateLeftMenuDisplay] = useStore.leftMenuDisplay();
 
-  const activeTomatoTask = useMemo(() => tomatoTaskList.find(task => task.uuid === activeTomatoUUID), [tomatoTaskList, activeTomatoUUID])
-  const {
-    data: allTaskList,
-    error: getRemoteDataError,
-  } = useSWR('getTaskList', storageManager.getTaskList.bind(storageManager));
-
-
-  useEffect(() => {
-    if(allTaskList?.length) {
-      setActiveTomatoTaskUUID((uuid) => {
-        if(uuid) {
-          return uuid;
-        }
-        return allTaskList[0].uuid;
-      });
-      updateTomatoTaskList(draft => {
-        draft.length = 0;
-        allTaskList.forEach(task => {
-          draft.push(new TomatoTask(task));
-        })
-      })
-    }
-  }, [allTaskList])
-
-  useEffect(() => {
-    const handleStorageChangeListener = (taskList) => {
-      updateTomatoTaskList(draft => {
-        draft.length = 0;
-        taskList.forEach(task => {
-          draft.push(new TomatoTask(task));
-        })
-      })
-    }
-    storageManager.addStorageChangeListener(handleStorageChangeListener);
-
-    return () => {
-      storageManager.removeStorageChangeListener(handleStorageChangeListener);
-    }
-  }, [])
-
-  useEffect(() => {
-    tomatoTaskList.forEach(task => {
-      storageManager.getTask(task.uuid).then(dbTask => {
-        if (!dbTask) {
-          storageManager.addTask(task.storeIndexDBData)
-        } else {
-          if (new Date(dbTask.updatedAt).getTime() < new Date(task.updatedAt).getTime()) {
-            storageManager.putTask(task.storeIndexDBData)
-          }
-        }
-      });
-    })
-  }, [tomatoTaskList])
-
-  useEffect(() => {
-    const {setIntervalInWorker, clearIntervalInWorker} = window.workerApi;
-    let timer;
-    if (ongoing) {
-      setIntervalInWorker(() => {
-        updateTomatoTaskList(draft => {
-          const index = draft.findIndex(todo => todo.uuid === activeTomatoUUID);
-          let task = draft[index];
-          if (task.currentTomatoTime < TOMATO_TIME * 60 * 1000) {
-            task = task.addCurrentTomatoTime(1);
-          } else {
-            notification('已完成一个番茄todo');
-            task = task.finishCurTomato();
-            setOngoing(false);
-          }
-          draft[index] = task;
-        })
-      }, 1000).then(_timer => timer = _timer)
-    }
-    return () => {
-      clearIntervalInWorker(timer);
-    }
-  }, [ongoing, activeTomatoUUID])
-
-  const notification = (info) => {
-    // 检查浏览器是否支持Notifications API
-    if (!("Notification" in window)) {
-      alert("此浏览器不支持桌面通知");
-    }
-
-    // 检查用户是否已经给予通知权限
-    else if (Notification.permission === "granted") {
-      // 如果已经授权，我们可以发送一个通知
-      new Notification(info);
-    }
-
-    // 否则，我们需要请求用户的权限
-    else if (Notification.permission !== "denied") {
-      Notification.requestPermission().then(function (permission) {
-        // 如果用户接受了权限请求，那么我们就可以发送一个通知
-        if (permission === "granted") {
-          new Notification(info);
-        }
-      });
-    }
-  }
-
-  const createNewTodo = (todoName) => {
-    const tomatoTask = new TomatoTask({
-      title: todoName,
-    })
-
-    updateTomatoTaskList(draft => {
-      draft.push(tomatoTask)
-    })
-  }
-
-  const handleStatusChange = (tomatoTaskUUID) => {
-    setActiveTomatoTaskUUID(tomatoTaskUUID);
-    updateTomatoTaskList(draft => {
-
-      const ongoingItems = draft.filter(todo => todo.onGoing && todo.uuid !== tomatoTaskUUID);
-      ongoingItems.forEach(ongoingItem => {
-        const newState = ongoingItem.stopTomato();
-        const index = draft.findIndex(todo => todo.uuid === ongoingItem.uuid);
-        draft[index] = newState;
-      })
-
-      const index = draft.findIndex(todo => todo.uuid === tomatoTaskUUID);
-      const oldState = draft[index];
-      const newState = oldState.updateTomatoToNextStatus();
-      draft[index] = newState;
-      setOngoing(newState.onGoing);
-    })
-  }
+  const activeTomatoTask = useMemo(() => tomatoTaskList.find((task) => task.uuid === activeTomatoUUID), [tomatoTaskList, activeTomatoUUID]);
 
   const finishCurTomato = () => {
-    updateTomatoTaskList(draft => {
-      const index = draft.findIndex(todo => todo.uuid === activeTomatoUUID);
-      const oldState = draft[index];
+    updateTomatoTaskList((draftRef) => {
+      const index = draftRef.current.findIndex((todo) => todo.uuid === activeTomatoUUID);
+      const oldState = draftRef.current[index];
       const newState = oldState.finishCurTomato();
-      draft[index] = newState;
-      setOngoing(newState.onGoing);
-    })
-  }
+      draftRef.current[index] = newState;
+      updateOngoing((draftRef) => {
+        draftRef.current = newState.onGoing;
+      });
+    });
+  };
 
   const discardedCurTomato = () => {
-    updateTomatoTaskList(draft => {
-      const index = draft.findIndex(todo => todo.uuid === activeTomatoUUID);
-      const oldState = draft[index];
+    updateTomatoTaskList((draftRef) => {
+      const index = draftRef.current.findIndex((todo) => todo.uuid === activeTomatoUUID);
+      const oldState = draftRef.current[index];
       const newState = oldState.discardedCurTomato();
-      draft[index] = newState;
-      setOngoing(newState.onGoing);
-    })
-  }
+      draftRef.current[index] = newState;
+      updateOngoing((draftRef) => {
+        draftRef.current = newState.onGoing;
+      });
+    });
+  };
 
-  const handleDelete = (tomatoTaskUUID) => {
-    if (activeTomatoUUID === tomatoTaskUUID) {
-      setActiveTomatoTaskUUID(null);
-    }
-    updateTomatoTaskList(draft => {
-      const index = draft.findIndex(todo => todo.uuid === tomatoTaskUUID);
-      const oldState = draft[index];
-      draft[index] = oldState.updateTaskStatus(TASK_STATUS.DELETE);
-    })
-    setOngoing(false);
-  }
+  const handleStatusChange = (tomatoTaskUUID) => {
+    updateActiveTomatoTaskUUID((draftRef) => {
+      draftRef.current = tomatoTaskUUID;
+    });
+    updateTomatoTaskList((draftRef) => {
+      const ongoingItems = draftRef.current.filter((todo) => todo.onGoing && todo.uuid !== tomatoTaskUUID);
+      ongoingItems.forEach((ongoingItem) => {
+        const newState = ongoingItem.stopTomato();
+        const index = draftRef.current.findIndex((todo) => todo.uuid === ongoingItem.uuid);
+        draftRef.current[index] = newState;
+      });
 
-  const todayTomatoRender = (num) => {
-    if(num <= 0) return null;
-    const items = [];
-
-    for (let i = 0; i < num; i++) {
-      items.push(<TomatoItemSC key={i}><TomatoIcon /></TomatoItemSC>);
-    }
-
-    return <TomatoContainerSC>{items}</TomatoContainerSC>;
-  }
+      const index = draftRef.current.findIndex((todo) => todo.uuid === tomatoTaskUUID);
+      const oldState = draftRef.current[index];
+      const newState = oldState.updateTomatoToNextStatus();
+      draftRef.current[index] = newState;
+      updateOngoing((draftRef) => {
+        draftRef.current = newState.onGoing;
+      });
+    });
+  };
 
   return (
     <>
@@ -199,101 +70,67 @@ export default function Home() {
         src="index.worker.js"
         strategy="beforeInteractive"
       />
-      <ContainerSC>
-        <LeftMenuSC>
-          <AddSC onClick={() => setIsAdd(true)}>New todo</AddSC>
-          <TodoContainerSC>
-            {
-              tomatoTaskList
-                .filter(tomatoTask => tomatoTask.status !== TASK_STATUS.DELETE)
-                .map(tomatoTask => (
-                  <TodoItemSC key={tomatoTask.uuid}>
-                    <TodoTaskInfoSC>
-                      <TodoTaskTitleSC>
-                        {tomatoTask.title}
-                      </TodoTaskTitleSC>
-                      {
-                        tomatoTask.completedTomatoes.length > 0 && (
-                          <TotalTomatoSC>
-                            <TomatoIcon />
-                            {`*${tomatoTask.completedTomatoes.length}`}
-                          </TotalTomatoSC>
-                        )
-                      }
-                      {todayTomatoRender(tomatoTask.todayTomatoes.length)}
-                    </TodoTaskInfoSC>
-                    <TodoToolSC>
-                      <div
-                        className='delete'
-                        onClick={() => handleDelete(tomatoTask.uuid)}
-                      >
-                        删除
-                      </div>
-                      <div onClick={() => handleStatusChange(tomatoTask.uuid)}>{tomatoTask.operate}</div>
-                    </TodoToolSC>
-                  </TodoItemSC>
-                ))
-            }
-          </TodoContainerSC>
+      <ContainerSC visible={leftMenuDisplay}>
+        <LeftMenuSC visible={leftMenuDisplay}>
+          <LeftMenu />
         </LeftMenuSC>
         <ContentSC>
           <TopBar />
-          <div className="content">
-            <TimeDisplaySC>
-              {activeTomatoTask && Array.from(activeTomatoTask.displayTime).map(char => (
-                <NumberSpanSC>{char}</NumberSpanSC>))}
-              <div className="title">{activeTomatoTask?.title}</div>
-              {
-                activeTomatoTask && (
-                  <div className="operate-container">
-                    <div
-                      className="operate-item"
-                      onClick={discardedCurTomato}
-                    >
-                      {TOMATO_OPERATE.DISCARDED}
-                    </div>
-                    <div
-                      className="operate-item"
-                      onClick={() => handleStatusChange(activeTomatoTask.uuid)}
-                    >
-                      {activeTomatoTask.operate}
-                    </div>
-                    <div
-                      className="operate-item"
-                      onClick={finishCurTomato}
-                    >
-                      {TOMATO_OPERATE.COMPLETED}
-                    </div>
-                  </div>
-                )
+          <TouchCommon
+            on_touchEnd={(e) => {
+              if (Math.abs(e.x_move) < 100) return;
+              if (e.direction === 'right') {
+                updateLeftMenuDisplay((draftRef) => {
+                  draftRef.current = true;
+                });
+              } else if (e.direction === 'left' && isIpadOS()) {
+                updateLeftMenuDisplay((draftRef) => {
+                  draftRef.current = false;
+                });
               }
-            </TimeDisplaySC>
-          </div>
+            }}
+          >
+            <div className="content">
+              <TimeDisplaySC>
+                {activeTomatoTask && Array.from(activeTomatoTask.displayTime).map((char) => (
+                  <NumberSpanSC>{char}</NumberSpanSC>))}
+                <div className="title">{activeTomatoTask?.title}</div>
+                {
+                  activeTomatoTask && (
+                    <div className="operate-container">
+                      <div
+                        className="operate-item"
+                        onClick={discardedCurTomato}
+                      >
+                        {TOMATO_OPERATE.DISCARDED}
+                      </div>
+                      <div
+                        className="operate-item"
+                        onClick={() => handleStatusChange(activeTomatoTask.uuid)}
+                      >
+                        {activeTomatoTask.operate}
+                      </div>
+                      <div
+                        className="operate-item"
+                        onClick={finishCurTomato}
+                      >
+                        {TOMATO_OPERATE.COMPLETED}
+                      </div>
+                    </div>
+                  )
+                }
+              </TimeDisplaySC>
+            </div>
+          </TouchCommon>
         </ContentSC>
-        {
-          isAdd && (
-            <GlobalClose
-              openListener={isAdd}
-              onClose={() => setIsAdd(false)}
-            >
-              <InputContainer
-                onEnter={(value) => {
-                  createNewTodo(value);
-                  setIsAdd(false)
-                }}
-              >
-                <InputSC/>
-              </InputContainer>
-            </GlobalClose>
-          )
-        }
       </ContainerSC>
     </>
-  )
+  );
 }
 
-
-const ContainerSC = styled('div')`
+const ContainerSC = styled('div', 'visible').attrs((props) => props.theme.deviceInfo.px < BREAK_POINTS.sm && ({
+  className: ['sm'],
+}))`
   background: rgb(49, 49, 49);
   min-height: 100vh;
   color: rgb(186, 186, 186);
@@ -303,131 +140,31 @@ const ContainerSC = styled('div')`
   right: 0;
   bottom: 0;
   display: flex;
+
+
+  &.sm {
+    right: unset;
+    width: 200vw;
+    transform: ${(props) => !props.visible && 'translateX(-100vw)'};
+    transition: transform 0.2s;
+  }
 `;
 
-const LeftMenuSC = styled('div')`
-  background: rgb(59, 63, 67);
-  width: 480px;
+const LeftMenuSC = styled('div', 'visible')`
+  background: rgb(59, 63, 66);
   height: 100%;
-  min-height: 100vh;
+
+  width: ${(props) => ((props.theme.deviceInfo.px > BREAK_POINTS.sm && props.theme.deviceInfo.px < BREAK_POINTS.xl && !props.visible) ? 0 : 'fit-content')};
+  opacity: ${(props) => (props.visible ? 1 : 0)};
+  transition: opacity 0.5s, width 0.5s;
+  padding-top: constant(safe-area-inset-top);
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-left: constant(safe-area-inset-left);
+
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
   box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  padding-top: 40px;
-
-  @media (max-width: 780px) {
-    display: none;
-  }
-`;
-
-const AddSC = styled('div')`
-  border: 1px solid rgb(186, 186, 186);
-  border-radius: 4px;
-  padding: 10px 0;
-  display: flex;
-  justify-content: center;
-  cursor: pointer;
-  user-select: none;
-  margin-left: 20px;
-  margin-right: 20px;
-`;
-
-const InputSC = styled('input')`
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  height: 40px;
-  width: 200px;
-  margin: auto;
-`;
-
-const TodoContainerSC = styled('div')`
-  margin-top: 30px;
-  padding-left: 20px;
-  padding-right: 20px;
-  flex: 1;
-  overflow-y: scroll;
-  overflow-y: overlay;
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 10px;
-  }
-
-  ::-webkit-scrollbar-track {
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: rgb(73, 73, 74);
-    border-radius: 10px;
-  }
-
-  ::-webkit-scrollbar-corner {
-  }
-`;
-
-const TodoItemSC = styled('div')`
-  height: 88px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
-  user-select: none;
-  background: rgb(66, 70, 73);
-  border-radius: 10px;
-  margin-bottom: 20px;
-  box-sizing: border-box;
-  padding: 20px;
-`;
-
-const TodoTaskInfoSC = styled('div')`
-  position: relative;
-  flex: 1;
-  display: flex;
-  box-sizing: border-box;
-  padding-right: 30px;
-`;
-
-const TodoTaskTitleSC = styled('div')`
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 240px;
-`;
-
-const TotalTomatoSC = styled('div')`
-  margin-left: 10px;
-  display: flex;
-  align-items: center;
-  font-size: 12px;
-  .icon {
-    width: 16px;
-    height: 16px;
-  }
-`;
-
-const TomatoContainerSC = styled('div')`
-  position: absolute;
-  top: 100%;
-  display: flex;
-  margin-left: -5px;
-`;
-
-const TomatoItemSC = styled('div')`
-  .icon {
-    width: 16px;
-    height: 16px;
-  }
-`;
-
-const TodoToolSC = styled('div')`
-  display: flex;
-  align-items: center;
-
-  .delete {
-    margin-right: 16px;
-  }
 `;
 
 const ContentSC = styled('div')`

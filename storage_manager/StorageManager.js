@@ -1,14 +1,13 @@
-import {authDB, db} from './index_db/db'
-import {debounce} from "@/common/debounce";
-import {Dropbox} from "dropbox";
-import {throttle} from "@/common/throttle";
+import { Dropbox } from 'dropbox';
+import { throttle } from '@/common/throttle';
+import { authDB, db } from './index_db/db';
 
 export class StorageManager {
   static instance;
 
   $storageChangeListener = new Set();
 
-  constructor() {
+constructor() {
     if (StorageManager.instance) {
       return StorageManager.instance;
     }
@@ -26,51 +25,49 @@ export class StorageManager {
 
   async getTaskList() {
     this.$syncData();
-    return db.taskList.toArray()
+    return db.taskList.toArray();
   }
 
   async getTask(uuid) {
-    return db.taskList.get(uuid)
+    return db.taskList.get(uuid);
   }
 
   async addTask(task) {
     this.$syncData();
-    return db.taskList.add(task)
+    return db.taskList.add(task);
   }
 
   async putTask(task) {
     this.$syncData();
-    return db.taskList.put(task)
+    return db.taskList.put(task);
   }
 
   $syncData = throttle(() => {
     authDB.auth.get('user').then(async (authData) => {
       if (authData?.expiresIn > new Date().getTime()) {
-        const token = authData.token;
-        const dbx = new Dropbox({accessToken: token});
+        const { token } = authData;
+        const dbx = new Dropbox({ accessToken: token });
         const remoteTaskList = await this.$getTaskListFromRemote(dbx);
         const localTaskList = await db.taskList.toArray();
         this.$syncToLocal(localTaskList, remoteTaskList);
         this.$syncToRemote(localTaskList, remoteTaskList, dbx);
       }
     });
-  }, 30000)
+  }, 30000);
 
   $getTaskListFromRemote(dbx) {
     const path = process.env.NEXT_PUBLIC_ENV === 'development' ? '/dev/index.json' : '/index.json';
-    return dbx.filesDownload({path})
-      .then((response) => new Promise(resolve => {
+    return dbx.filesDownload({ path })
+      .then((response) => new Promise((resolve) => {
         const blob = response.result.fileBlob; // Blob object contains the file data
         const reader = new FileReader();
-        reader.onload = function() {
+        reader.onload = function () {
           const text = reader.result;
           resolve(JSON.parse(text));
         };
         reader.readAsText(blob);
       }))
-      .catch((error) => {
-        return [];
-      });
+      .catch((error) => []);
   }
 
   $syncToLocal(localTaskList, remoteTaskList) {
@@ -85,12 +82,12 @@ export class StorageManager {
         change = true;
         db.taskList.put(remoteFile);
       }
-    })
+    });
 
-    if(change) {
-      db.taskList.toArray().then(taskList => {
-        this.$storageChangeListener.forEach(callback => callback(taskList))
-      })
+    if (change) {
+      db.taskList.toArray().then((taskList) => {
+        this.$storageChangeListener.forEach((callback) => callback(taskList));
+      });
     }
   }
 
@@ -118,27 +115,27 @@ export class StorageManager {
           uploadAt: new Date().toISOString(),
         };
         db.taskList.put(newFileInfo);
-        return newFileInfo
+        return newFileInfo;
         // eslint-disable-next-line max-len
       }
       return localFile;
     });
 
-    if(change) {
+    if (change) {
       Promise.all(newFileListPromise).then((newFileList) => {
         const path = process.env.NEXT_PUBLIC_ENV === 'development' ? '/dev/index.json' : '/index.json';
         // 将 JSON 对象转化为字符串
         const jsonString = JSON.stringify(newFileList);
 
         // 创建一个 Blob 对象代表这个字符串的内容
-        const fileContent = new Blob([jsonString], {type: 'application/json'});
+        const fileContent = new Blob([jsonString], { type: 'application/json' });
 
         // 上传这个 Blob 对象到 Dropbox
-        dbx.filesUpload({path, contents: fileContent, mode: 'overwrite'})
-          .then(function (response) {
+        dbx.filesUpload({ path, contents: fileContent, mode: 'overwrite' })
+          .then((response) => {
             // console.log(response);
           })
-          .catch(function (error) {
+          .catch((error) => {
             // console.error(error);
           });
       });

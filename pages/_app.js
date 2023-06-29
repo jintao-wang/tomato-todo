@@ -1,12 +1,12 @@
-import React, {useEffect, useState} from 'react';
-import GlobalStyles from '../styles/global';
-import useStore from "@/store";
-import {ThemeProvider} from "styled-components";
-import useDeviceInfo from "@/basic_hooks/useDeviceInfo";
+import React, { useEffect, useState } from 'react';
+import useStore from '@/store';
+import { ThemeProvider } from 'styled-components';
+import useDeviceInfo from '@/basic_hooks/useDeviceInfo';
+import GlobalStyles from '@/styles/global';
 
 // eslint-disable-next-line react/prop-types
 function MyApp({ Component, pageProps }) {
-  const [deviceInfo] = useStore('deviceInfo');
+  const [deviceInfo] = useStore.deviceInfo();
   const [theme, setTheme] = useState({ deviceInfo });
 
   useDeviceInfo();
